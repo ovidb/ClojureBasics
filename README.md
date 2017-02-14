@@ -230,6 +230,7 @@ nil             ; null
 
 ## Invoking Java Code
 | Task            | Java              | Clojure          |
+|:----------------|:------------------|:-----------------|
 | Instatiation    | new Widget("Foo") | (Widget. "foo")  |
 | Instance method | rnd.nextInt()     | (.nextInt rnd)   |
 | Instance field  | object.field      | (.-field object) |
@@ -239,6 +240,7 @@ nil             ; null
 ## Chaining access
 
 | Language      | Syntax                             |
+|:--------------|:-----------------------------------|
 | Java          | person.getAddress().getZipCode()   |
 | Clojure       | (.getZipCode (.getAddress person)) |
 | Clojure Sugar | (.. person getAddress getZipCode)  |
@@ -266,3 +268,277 @@ nil             ; null
 ```
 
 ![Summary](./docs/assets/module2-summary.png "Module 2 Summary")
+
+# 3 Names and Namespaces
+
+## Why Namespaces?
+
+- Re-use common name in different contexts
+  - eg clojure.core/replace and clojure.string/replace
+- Separate application "layers" or "components"
+- Libraries
+- Separate "public API" and "internal implementation"
+
+## What's in a Namespace?
+- Namespace scope
+  - Vars
+  - Keywords
+  - Java type names
+- Local, lexical scope
+  - function arguments
+  - let
+
+## Namespace-Qualified Vars
+
+```clojure
+;; In the namespace "foo.bar"
+(defn hello [] (println "Hello, World"))
+
+;; In another namespace
+(foo.bar/hello) ; namespace-qalified, here we are actually invking the function with no arguments
+```
+
+## Namespaced-Qualified Keywords
+
+;; In namespace "foo..bar"
+:x      ; Keyword with no namespace
+
+::x     ; Keyword with namespace "foo.bar"
+        ; ::x in one namespace is different from
+        ; ::x in another namespace
+
+:baz/x  ; Keyword with namespace "baz"
+        ; here we are fully qulifying the namespace
+        ; It's a good idea if you want to avoid collision
+
+## Namespaces in the REPL
+
+- `in-ns` switches to namespace
+  - Creates namespace if it doesn't exist
+- Argument is a symbol, must always be quoted
+- REPL always starts in namespace "user"
+
+```clojure
+user=> (in-ns 'foo.bar.baz)
+;;=> nil
+foo.bar.baz =>
+```
+
+## Namespace Operations
+
+- Load: find source on classpath & eval it
+- Alias: make shorter name for namespace-qualified symbols
+- Refer: copy a symbol bindings from another namespace into current namespace
+- Import: make Java class names available in current namespace
+
+## `require`
+
+- Loads the namespace if not already load
+  - argument is a symbol, must be quoted
+- Have to refer to things with fully-qualified names
+
+```clojure
+(require 'clojure.set)
+;;=> nil
+
+(clojure.set/union #{1 2} #{2 3 4})
+;;=> #{1 2 3 4}
+```
+
+## `require :as`
+- Loads the namespace if not already loaded
+  - argument is a vector, must be quoted
+- Aliases the namespace to alternate name
+(
+```clojure
+(require `[clojure.set :as set])
+;;=> nil
+
+;; "set" is an alias for "clojure.set"
+(set/union #{1 2} #{2 3 4})
+;;=> #{1 2 3 4}
+```
+
+## `use`
+
+- Loads the namespace if not already loaded
+  - argument is a symbol, must be quoted
+- Referes all symbols into current namespace
+- Warns when symbol clash
+- Not recommanded exept for REPL exploration
+
+```clojure
+user=>(use 'clojure.string)
+WARNING: reverse already refers to: 
+#'clojure.core/reverse in namespace: 
+user, being replaced by: 
+#'clojure.string/reverse
+=> nil
+(reverse "hello")
+;;=> "olleh"
+```
+
+## `use :only`
+- Loads the namespace if not already loaded
+  - argument is a vector, must be quoted
+- Refers only specified symbols into current namespace
+
+```clojure
+(use '[clojure.string :only (join)])
+=> nil
+(join "," [1 2 3])
+=> "1,2,3"
+```
+
+## Reloading the Namespaces
+
+- By default, namespaces are loaded only once
+- `use` and `require` take optional flags to force reload
+
+```clojure
+;; Reload just the foo.bar namespace:
+(require 'foo.bar :reload)
+
+;; Reload foo.bar and everything
+;; required or used by foo.bar:
+
+(require 'foo.bar :reload-all)
+```
+
+## Import
+
+- Makes Java classes available w/o pacage prefix in current namespace
+  - argument is a list, quoting is optional
+- Does not support aliases/renaming
+- Does not support Java's `import *`
+
+```clojure
+(import (java.io FileReader File))
+;;=> nil
+
+(Filereader. (File. "file.txt"))
+;;=> #<FileReader ...>
+```
+
+## Namespaces and Files
+
+- For require/use to work, have to find code defining namespace
+- Clojure converts namespace name to path and looks on CLASSPATH
+  - Dots in namespace name become /
+  - Hyphens become underscores
+- Idiomatic to define namespace per file
+
+## `ns` Declaration
+
+> One way to think of a namespace is as a DSL (Domain Specific Language) for describe a series of desired, uses and requires in a namespace
+
+- Creates namespace and loads, aliases what you need
+  - at top of file
+- Refers all of `clojure.core`
+- Imports all of `java.lang`
+
+```clojure
+;; in file foo/bar/baz_quux.clj
+(ns foo.bar.baz-quux)
+```
+
+## `ns : require`
+
+- Loads other namespaces with optional alias
+  - arguments are -not- quoted
+
+```clojure
+(ns my.cool.project
+  (:requite [some.ns.foo :as foo]))
+    
+(foo/function-in-foo)
+```
+
+## `ns :use`
+
+- Loads other namespace and refers symbols into namespace
+  - arguments are not quoted
+
+```clojure
+(ns my.cool.project
+  (:use [some.ns.foo :only (coo koo)]))
+    
+(coo) ;=> (some.ns.foo/coo)
+```
+
+## `ns :import`
+
+- Loads Java library and refers symbols into namespace
+  - arguments are not quoted
+  
+```clojure
+(ns my.cook.project
+  (:import (java.io File Writer)))
+  
+File    ;=> java.io.File
+```
+## `ns` Complete Example
+
+```clojure
+(ns name
+  (:require [some.ns.foo :as foo]
+            [other.ns.bar :as bar])
+  (:use [this.ns..baz :only (a b c)]
+        [that.ns.coo :only (d e f)])
+  (:import (java.io File FileWriter)
+           (java.net URL URI)))
+```
+
+## Private vars
+
+- Add `^:private` metadata to a definition
+  - `defn-` is a shortcut for `defn ^:private
+- Prevents automatic refer with `use`
+- Prevents accidental reference by qualified symbol
+- Not truly hidden: can work around
+
+## `the-ns`
+
+- NSs are first class objects
+- But their _names_ are not normal symbols
+
+```clojure
+clojure.core
+;; => ClassNotFoundException: clojure core
+
+(the-ns 'clojure.core)
+;;=> #<Namespace clojure.core>
+
+```
+
+## Namespace Introspection
+
+- `ns-name`: namespace name, as symbol
+- `ns-map`: map of all symbols
+  - `ns-interns`: only def'd Vars
+  - `ns-publics`: only public Vars
+- `ns-imports`: only impored classes
+- `ns-refers`: only Vars from other namespaces
+- `ns-aliases`: map of all aliases
+- `clojure.repl/dir`: print public Vars
+
+![Summary](./docs/assets/module3-summary.png "Module 3 Summary")
+
+
+
+
+
+
+
+
+
+
+
+
+# Tips, tricks and other gotchas
+
+#### get the keys of a map of all the symbols available in a namespace
+```clojure
+(keys (ns-publics 'clojure.java.io))
+(dir "clojure.java.io")
+```

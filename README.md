@@ -299,7 +299,7 @@ nil             ; null
 ```
 
 ## Namespaced-Qualified Keywords
-
+```clojure
 ;; In namespace "foo..bar"
 :x      ; Keyword with no namespace
 
@@ -310,6 +310,7 @@ nil             ; null
 :baz/x  ; Keyword with namespace "baz"
         ; here we are fully qulifying the namespace
         ; It's a good idea if you want to avoid collision
+```
 
 ## Namespaces in the REPL
 
@@ -524,13 +525,159 @@ clojure.core
 
 ![Summary](./docs/assets/module3-summary.png "Module 3 Summary")
 
+# 4 Flow Control
 
+## Expresions in Clojure
 
+> Expressions return a value, statements don't
 
+- In Clojure there are only expressions
+  - always returns a value
+  - a block of multiple expressions returns the last value
+    > let, do, fn: all return wathever was the value of the last expression inside of them
+  - Expressions exclusively for side-effects (network, io) return `nil`
+  
+## Flow Control Expressions
 
+- Flow control operators are expressions too
+- Composable, can use the anywere
+  - Fewer intermediate variables
+- Extensible, via macors
+  > eg: when-let
+  
+## Truthiness
 
+```clojure
+(if true :truthy :falsey)
+;;=> :truthy
+(if (Object.) :truthy :false)
+;;=> :turthy
+if( [] :truthy :falsey) ; empty collections are true
+;;=> :truthy
 
+(if false :truthy :falsey)
+;;=> :falsey
+(if nil :truthy :falsey) ; nil is false
+;;=> :falsey
+(if (seq []) :truthy :falsey) ; seq on empty coll is nil
+;;=> :falsey
+```
 
+## `if`
+
+```clojure
+(str "2 is " (if (even? 2) "even" "odd")))
+;;=> "2 is even"
+
+;; else-expression is optional
+(if (true? false) "Imposible!!!")
+;;=> nil
+```
+
+## `if do`
+
+- Multiple expressions per branch
+- Last value in branch returned
+```clojure
+(if (even? 5)
+  (do (println "even")
+      true)
+  (do (println "odd")
+      false)) ;=> false
+;; odd
+```
+Here the value false is returned but in the same time the `odd` message is printed out
+
+## `if-let`
+
+- Often want `let` as `if` branch, instead of do
+- if-let combines the forms
+- Only one binding form allowed, tested for truthiness
+```clojure
+(if-let [x (even? 3)]
+   (println x)
+   (println "some odd values"))
+```
+
+## `cond`
+
+- Unlinke `if`, `cont` cand take a series of tests
+- `:else` expression is optional
+```clojure
+(cond
+  test1 expression1
+  test2 expression2
+  ...
+  :else else-expression)
+```
+Here's an example:
+```clojure
+(let [x 11]
+  (cond
+    (< x 2) "x is smaller than 2"
+    (< x 10) "x is smaller than 10")
+    :else "x is greater or equal to 10")
+;;=> "x is less than 10"
+
+```
+
+## `condp`
+
+- Cond with shared predicate
+
+```clojure
+(defn foo [x]
+  (condp = x
+    5  "x is 5"
+    10 "x is 10"
+    "x isn't 5 or 10")) ; default expression
+(foo 11) ;=> "x isn't 5 or 10"
+```
+
+## `case`
+
+- Predicate always =
+- Test-values must be compile-time literals
+- Match is O(1)
+- Else-expression has no test value
+
+```clojure
+(defn foo [x]
+  (case x
+    5 "x is 5"
+    10 "x is 10"
+    "x isn't 5 or 10"))
+(foo 11) ;=> "x inst't 5 or 10"
+```
+
+## Recursion and Iteration
+
+- `loop` and the sequence abstration
+- `loop` is "classic" recursion
+  - closed to consumers, lower-level
+- Sequences respresent iteration as values
+  - consumers can partially iterate
+  
+## `doseq`
+
+- Iterates over a sequence
+  - similar to java's foreach loop
+- If a lazy sequence, `doseq` forces evaluation
+
+```clojure
+(doseq [n (range 3)]
+  (println n))
+;; 0
+;; 1
+;; 2
+;; => nil
+
+```
+
+#### `doseq` multiple bindings
+
+- similar to nested foreach loops
+- processes all permutations of sequence content
 
 
 
@@ -542,3 +689,113 @@ clojure.core
 (keys (ns-publics 'clojure.java.io))
 (dir "clojure.java.io")
 ```
+
+## `dotimes`
+
+```clojure
+(dotimes [i 3]
+  (println i))
+;; 0
+;; 1
+;; 2
+;;=> nil
+```
+
+## `while`
+
+- evaluate expression while condition is true
+
+```clojure
+(while (.accept socket)
+  (handle socket))
+```
+
+## `for`
+
+- List comprehension, NOT a for-loop
+- Generator function for sequence permutation
+
+```clojure
+(for [x [0 1]
+      y [0 1]]
+  [x y])
+;;=> ([0 0] [0 1] [1 0] [1 1]) ; seq
+```
+
+## `loop recur`
+
+- Functional looping construct
+  - `loop` defines bindings
+  - `recur` re-executes `loop` new bindings
+- Prefer higher-order libray fns
+
+```clojure
+(loop [i 0]
+  (if (< i 10)
+    (recur (inc 1))
+    i)) ;=> 10
+```
+
+## `defn recur`
+
+- fn arguments are bindings
+
+The following example will increase whatever the value we provide until it reaches 10 
+```clojure
+(defn increase [i]
+  (if (< i 10)
+    (recur (inc i))
+    i))
+(increase 1) ;=> 10
+
+```
+
+## `recur` for recursion
+
+- `recur` must be in "tail position"
+  - the last expression in a branch
+- `recur` must provide values for all bound symbols by position
+  - loop bindings
+  - defn/fn args
+- Recurion via `recur` does not consume stack
+
+## Exception handling
+
+- try/catch/finaly
+  - as in Java
+  
+```clojure
+(try
+  (/2 1)
+  (catch ArithmeticException e
+    "divide by zero")
+  (finaly
+    (println "cleanup")))
+;; cleanup
+;;=> 2
+  
+```
+
+## Throwing exceptions
+
+```clojure
+(try
+  (throw (Exception. "something went wrong"))
+  (catch Exception e (.getMessage e)))
+;;=> "something went wrong"
+
+
+```
+
+## `with-open`
+
+- JDK7 introduces try-with-resources
+- Clojure provides `with-open` for similar purposes
+
+```clojure
+(require '[clojure.java.io :as io])
+(with-open [f (io/writer "/tmp/new")]
+  (.write f "some text"))
+```
+
+![Summary](./docs/assets/module4-summary.png "Module 4 Summary")

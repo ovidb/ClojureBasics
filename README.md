@@ -799,3 +799,226 @@ The following example will increase whatever the value we provide until it reach
 ```
 
 ![Summary](./docs/assets/module4-summary.png "Module 4 Summary")
+
+
+# Collections
+
+- Collection are immutable
+- Are usually used as function arguments that are returning another collection
+
+## Wisdom of the ancients 
+
+- It's better to have 100 functions operate on one data structure than 10 function operate on 10 data structures
+
+## Immutability
+
+- The values of simple types are immutable
+  - 4, 0.5, true
+- Values of compund data structure are immutable too
+  - This is key to concurrency
+- The code should never change the values, it should always generate new ones
+- Persistent data structures ensure this is efficient in time and space
+
+## Persistent Data Structures
+
+- Old values + modifications
+- New values are not full copies
+- New values and old values are both available after 'changes'
+- Collection maintains its performance guarateees for most operations
+- All Clojure data structures are persistent
+
+## Concrete Data structures
+
+- Sequencial
+  - List, Vector
+- Associative
+  - Map, Vector
+- Both types support declarative structuring
+
+## List
+
+- Singly-linked list
+- Prepend: O(1)
+- Lookup: O(1) at head, O(n) anywhere eles
+```clojue
+()              ;=> the empty list
+(1 2 3)         ;=> error because 1 is not a function
+(list 1 2 3)    ;=> (1 2 3)
+'(1 2 3)        ;=> (1 2 3)
+(conj '(2 3) 1) ;=> (1 2 3)
+
+```
+
+## Vectors 
+
+- Indexed, random-access, array-like
+- Append, O(1)
+- Lookup, O(1)
+
+```clojure
+[]              ;=> the empty vector
+[1 2 3]         ;=> [1 2 3]
+(vector 1 2 3)  ;=> [1 2 3]
+(vec '(1 2 3))  ;=> [1 2 3]
+(nth [1 2 3] 0) ;=> 1
+(conj [1 2] 3)  ;=> [1 2 3]
+```
+
+## Maps
+
+- Key => value, hash table, dictionary
+- Insert and lookup: O(1)
+- Unordered
+
+```clojure
+{}                ;=> empty map
+{:a 1 :b 2}       ;=> {:a 1 :b 2}
+(:a {:a 1 :b 2})  ;=> 1
+({})
+```
+
+## Nested maps
+
+```clojure
+(def jdoe {:name "John Doe", :address {:zip 27705}})
+
+(get-in jdoe [:address :zip]) ;=> 27705
+
+(assoc-in jdoe [:address :zip] 27513)
+;;=> {:name "John Doe", :address {:zip 27514}}
+(update-in jdoe [:address :zip] inc)
+;;=> {:name "John Doe", :address {:zip 27706}}
+
+```
+
+## Sets
+
+- Set of distinct values
+- Insert: O(1)
+- Member?: O(1)
+- Unordered
+
+```clojure
+#{}                   ;=> the empty set
+#{:a :b}              ;=> #{:a :b}
+(#{:a :b} :a)         ;=> :a
+(conj #{} :a)         ;=> #{:a}
+(contains? #{:a} :a)  ;=> true
+```
+
+> `clojure.set` Examples
+
+```clojure
+(require '[clojure.set :as set])
+(set/uniuon #{:a} #{:b})             ;=> #{:a :b}
+(set/difference #{:a :b} #{:a})      ;=> #{:b}
+(set/intersection #{:a :b} #{:b :c}) ;=> #{:b}
+```
+![Summary](./docs/assets/module5-summary.png "Module 5 Summary")
+
+
+# Destructuring
+
+- Declarative way to pull apart compund data
+  - vs. explicit, verbose access
+- Works for both sequential and associative data structures
+- Nests for deep, arbitrary access
+- Works in `fn` and `defn` params, `let` binding
+  - anything built on top of them
+  
+## Sequencial Destructuring
+
+- Provide vector of symbols to bind by postion
+  - Binds to `nil` if there's no data
+  
+```clojure
+(def stuff [7 8 9 10 11]) ;=> #'user/stuff
+;; Bind a, b, c to first 3 values in stuff
+(let [[a b c] stuff]
+  (list (+ a b) (+ b c)))
+;;=> (15 17)
+(let [[a b c d e f] stuff]
+  (list d e f))
+;;=> (10 11 nil)
+```
+- Can get "everything else" with `&`
+  - Value is a sequence
+  
+```clojure
+(def stuff [7 8 9 10 11]) ;=> #'user/stuff
+(let [[a & others] stuff]
+  (println a)
+  (println others))
+;; 7
+;; (8 9 10 11)
+;;=> nil
+```
+
+> Values you don't care about
+- Idiomatic to use `_` for values you dan't care about
+
+```clojure
+(def stuff [7 8 9 10 11]) ;=> #'user/stuff
+(let [[_ _ & others] stuff]
+  (println others))
+;; (9 10 11)
+```
+
+> Other example
+
+```clojure
+(def fruits ["Bananna" "Apple" "Orange"])
+;;=> #'user/fruits
+(let [[first-fruit] fruits] first-fruit)
+;;=> "Bananna"
+(let [[_ & favourites]fruits] favourites)
+;;=> ("Apple" "Orange")
+(defn favourites-fruites [[_ & favourites-fruites]]
+  favourites-fruites)
+;;=> #'user/favourites-fruites
+(favourites-fruites fruits)
+;;=> ("Apple" "Orange")
+```
+
+## Associative Destructuring
+
+- Provide map of symbols to bind by key
+  - binds to `nil` if there's no value
+  
+```clojure
+(def m {:a 7 :b4}) ;=> #'user/m
+(let [{a :a, b :b} m]
+  [a b])
+;=> [7 4] 
+```
+- Keys can be inferred from vector of symbols to bind
+
+```clojure
+(def m {:a 7 :b4}) ;=> #'user/m
+(let [{:keys [a b c]} m]
+  [a b c])
+;;=> [7 4 nil]
+```
+- Use `:or` to provide default values for bound keys
+```clojure
+(def m {:a 7 :b4}) ;=> #'user/m
+(let [{:keys [a b c]
+       :or {c 3}} m]
+  [a b c])
+;;=> [7 4 3]
+```
+
+## Named Arguments
+
+- Applying vector of keys to `&` binding emulates named args
+
+```clojure
+(defn game [planet & {:keys [human-players computer-players]}]
+  (println "Total players: " (+ human-players computer-players)))
+  
+(game "Mars" :human-players 1 :computer-players 2)
+
+```
+> When a function takes named arguments you don't care about the order
+
+![Summary](./docs/assets/module6-summary.png "Module 6 Summary")
